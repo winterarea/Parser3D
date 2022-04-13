@@ -57,92 +57,25 @@ public class FBXLoader {
 		//version>=7500:read 64,version<7500:read 32
 		System.out.println("version:"+version);
 		
-		Map<String,FBXNode> allNodes=new HashMap();
+		//Map<String,FBXNode> allNodes=new HashMap();
+		List<FBXNode> allNodes=new ArrayList();
 		while(!reader.isEndOfContent()){
 			FBXNode node=parseNode(reader,version);
 			if(node!=null)
-				allNodes.put(node.name, node);
+				allNodes.add(node);
+			System.out.println(new Gson().toJson(allNodes));
 		}
 		dis.close();
 		is.close();
-		//PrintNodeMap(allNodes);
-/*		Set<Entry<String, FBXNode>> set=allNodes.entrySet();
-		Iterator<Entry<String, FBXNode>> it=set.iterator();
-		while(it.hasNext()){
-			Entry<String, FBXNode> entry=it.next();
-			FBXNode node=entry.getValue();
-			System.out.print(entry.getKey()+":");
-			PrintNodeContent(node);
-			if(node.SubNodeMap.size()>0){
-				PrintNodeMap(node.SubNodeMap);
-			}
-		}*/
 	}
-	public static void PrintNodeMap(Object nodeMapObject){
-		if(nodeMapObject instanceof HashMap){
-			Set<Entry<String, Object>> set=((Map<String, Object>) nodeMapObject).entrySet();
-			Iterator<Entry<String, Object>> it=set.iterator();
-			while(it.hasNext()){
-				Entry<String, Object> entry=it.next();
-				Object nodeObject=entry.getValue();
-				if(nodeObject instanceof FBXNode){
-					FBXNode node=(FBXNode)nodeObject;
-					System.out.print(entry.getKey()+":");
-					PrintNodeContent(node);
-					if(node.SubNodeMap.size()>0){
-						PrintNodeMap(node.SubNodeMap);
-					}
-				}else{
-					//System.out.print(nodeObject.toString()+"-");
-				}
-			}
-		}else{
-			System.out.print("PrintNodeMap:"+nodeMapObject.getClass().toString());
-		}
-		
-	}
-	public static void PrintNodeContent(Object nodeObject){
-		if(nodeObject instanceof FBXNode){
-			FBXNode node=(FBXNode)nodeObject;
-			for(int i=0;i<node.propertyList.size();i++){
-				if(node.propertyList.get(i).getClass().isArray()){
-					try{
-						if(node.propertyList.get(i) instanceof byte[]){
-							System.out.print(DatatypeConverter.printHexBinary((byte[])node.propertyList.get(i))+",");
-						}else{
-							Object[] temp=(Object[]) node.propertyList.get(i);
-							System.out.print("Array:");
-							for(int j=0;j<temp.length;j++){
-								System.out.print(temp[j]+",");
-							}
-						}
-					}catch(Exception e){
-						System.out.print("Exception"+":"+node.propertyList.get(i).getClass().toString());
-					}
-				}else{
-					System.out.print(node.propertyList.get(i)+":");
-				}
-			}
-			if(node.SubNodeMap.entrySet().size()>0){
-				System.out.print("Child["+node.SubNodeMap.entrySet().size()+"]:");
-				Iterator<Entry<String, Object>> it2=node.SubNodeMap.entrySet().iterator();
-				while(it2.hasNext()){
-					Entry<String, Object> entry2=it2.next();
-					System.out.print(entry2.getKey()+",");
-				}
-			}
-		}else{
-			System.out.print("PrintNodeContent:"+nodeObject.getClass());
-		}
-		
-		System.out.println();
-	}
+	
+	
 	public static FBXNode parseNode(FBXReader reader,int version) throws IOException{
 		FBXNode node = new FBXNode();
 		// The first three data sizes depends on version.
-		int endOffset=reader.readInt32();
-		int numProperties=reader.readInt32();
-		long tmp=(version>=7500)? reader.readInt64():reader.readInt32();
+		long endOffset=(version>=7500)? reader.readInt64():reader.readInt32();
+		long numProperties=(version>=7500)? reader.readInt64():reader.readInt32();
+		long propertyListLen=(version>=7500)? reader.readInt64():reader.readInt32();
 		
 		//System.out.println("endOffset:"+endOffset);
 		//System.out.println("numProperties:"+numProperties);
@@ -165,6 +98,17 @@ public class FBXLoader {
 		Object attrType=propertyList.size()>2? propertyList.get(2):"";
 		
 		node.singleProperty=(numProperties==1&&reader.offset==endOffset)? true:false;
+		if(endOffset>reader.offset){
+			FBXNode subNode=null;
+			do{
+				subNode=parseNode(reader,version);
+				if(subNode!=null){
+					parseSubNode(name,node,subNode);
+					node.add(subNode);
+				}
+			}while(subNode!=null);
+		}
+		/*
 		while(endOffset>reader.offset){
 			FBXNode subNode=parseNode(reader,version);
 			if(subNode!=null){
@@ -172,6 +116,7 @@ public class FBXLoader {
 				//node.add(subNode);
 			}
 		}
+		*/
 		node.propertyList=propertyList;
 		
 		if(id instanceof Integer||id instanceof Long) node.id=Long.parseLong(id.toString()); 
@@ -185,7 +130,7 @@ public class FBXLoader {
 		if(subNode.singleProperty){
 			Object value=subNode.propertyList.get(0);
 			if(value.getClass().isArray()){
-				node.SubNodeMap.put(subNode.name, subNode);
+				//node.SubNodeMap.put(subNode.name, subNode);
 				subNode.a=value;
 				System.out.print("[Array:");
 				Object[] temp=(Object[]) value;
@@ -194,7 +139,7 @@ public class FBXLoader {
 				}
 				System.out.print("],");
 			}else{
-				node.SubNodeMap.put(subNode.name, value);
+				//node.SubNodeMap.put(subNode.name, value);
 				System.out.print("[Single:"+value+"],");
 			}
 		}else if("Connections".equals(name)&&"C".equals(subNode.name)){
@@ -218,7 +163,7 @@ public class FBXLoader {
 			//System.out.println("Propertyies70:"+name);
 			//to be confirm
 			node.propertyList=subNode.propertyList;
-			node.SubNodeMap.putAll(subNode.SubNodeMap) ;
+			//node.SubNodeMap.putAll(subNode.SubNodeMap) ;
 			System.out.print(subNode.attrName+","+subNode.attrType+",");
 		}else if("Properties70".equals(name)&&"P".equals(subNode.name)){
 			String innerPropName=subNode.propertyList.get(0).toString();
@@ -244,7 +189,7 @@ public class FBXLoader {
 			tempMap.put("type2", innerPropType2);
 			tempMap.put("flag", innerPropFlag);
 			tempMap.put("value", innerPropValue);
-			node.SubNodeMap.put(innerPropName,tempMap );
+			//node.SubNodeMap.put(innerPropName,tempMap );
 			System.out.print(innerPropName+","+innerPropType1+","+innerPropType2+","+innerPropFlag+",");
 		}
 	}
