@@ -13,14 +13,14 @@ public class FBXNode {
 	public String name;
 	public Object node;
 	public List<Object> propertyList;
-	public Map<String,Object> SubNodeMap;
+	//public Map<String,Object> SubNodeMap;
 	public Object a;
 	public List<Object> connections;
 	
-	public FBXNode parent;
+	//public FBXNode parent;
 	public List<FBXNode> children;
 	public FBXNode(){
-		SubNodeMap=new HashMap();
+		//SubNodeMap=new HashMap();
 	}
 	
 	public void add(FBXNode child){
@@ -29,7 +29,7 @@ public class FBXNode {
 		if(children==null){
 			children=new ArrayList<FBXNode>();
 		}
-		child.parent=this;
+		//child.parent=this;
 		this.children.add(child);
 	}
 }
